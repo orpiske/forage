@@ -99,10 +99,16 @@ public class CodeScanner {
     public ScanResult scanAllInOnePass(Artifact artifact, Path rootDir) {
         ScanResult result = new ScanResult();
 
-        // Find the source directory (cached)
-        Path sourceDir = findSourceDirectory(artifact, rootDir);
-        if (sourceDir == null || !Files.exists(sourceDir)) {
+        // Find the module directory (cached), then narrow to src/main/java
+        Path moduleDir = findSourceDirectory(artifact, rootDir);
+        if (moduleDir == null || !Files.exists(moduleDir)) {
             log.debug("No source directory found for artifact: " + artifact.getArtifactId());
+            return result;
+        }
+
+        Path sourceDir = moduleDir.resolve("src").resolve("main").resolve("java");
+        if (!Files.exists(sourceDir)) {
+            log.debug("No src/main/java in module: " + artifact.getArtifactId());
             return result;
         }
 
@@ -114,7 +120,6 @@ public class CodeScanner {
             // JavaParser instance via ThreadLocal, so parallel processing is safe.
             try (Stream<Path> paths = Files.walk(sourceDir)) {
                 paths.filter(path -> path.toString().endsWith(".java"))
-                        .filter(path -> !path.toString().contains("/test/"))
                         .parallel()
                         .forEach(javaFile -> {
                             try {
